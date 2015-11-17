@@ -22,6 +22,7 @@ public class CustomerAgent extends Agent {
 
 	protected void setup() {
 		
+		System.out.println("CustomerAgent: setup");
 		DFAgentDescription dfd = new DFAgentDescription();
 		dfd.setName(getAID());
 		ServiceDescription sd = new ServiceDescription();
@@ -67,12 +68,14 @@ public class CustomerAgent extends Agent {
 		Shipment s;
 		
 		public NewShipmentBehaviour(Shipment s) {
+			System.out.println("CustomerAgent: NewShipmentBehaviour");
 			this.s = s;
 		}
 
 		@Override
 		public void action() {
 			
+			System.out.println("CustomerAgent: action");
 			updateTransportServiceList();
 			
 			//sende anfrage an alle transport service agents
@@ -92,6 +95,7 @@ public class CustomerAgent extends Agent {
 		}
 		
 		public void updateTransportServiceList() {
+			System.out.println("CustomerAgent: updateTransportServiceList");
 			DFAgentDescription template = new DFAgentDescription();
 			ServiceDescription sd = new ServiceDescription();
 			sd.setType("transport-service");
@@ -118,6 +122,7 @@ public class CustomerAgent extends Agent {
 		@Override
 		public void action() {
 			
+			System.out.println("CustomerAgent: GetSHipmentStatusBehaviour - action");
 			//empfange neue nachrichten
 			ACLMessage msg = myAgent.receive();
 			if (msg != null) {

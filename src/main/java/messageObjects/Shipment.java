@@ -81,4 +81,17 @@ public class Shipment implements Serializable {
 	public void setCustomerID(AID customerID) {
 		this.customerID = customerID;
 	}
+
+	@Override
+	public String toString() {
+		return "Shipment [xCoordStart=" + xCoordStart + ", yCoordStart="
+				+ yCoordStart + ", xCoordDest=" + xCoordDest + ", yCoordDest="
+				+ yCoordDest + ", customerID=" + customerID + ", carrierID="
+				+ carrierID + ", cost=" + cost + ", weight=" + weight
+				+ ", delivery=" + delivery + ", pickup=" + pickup
+				+ ", latestDeliveryConstraint=" + latestDeliveryConstraint
+				+ ", earliestpickupConstraint=" + earliestpickupConstraint
+				+ ", earliestDeliveryConstraint=" + earliestDeliveryConstraint
+				+ ", latestpickupConstraint=" + latestpickupConstraint + "]";
+	}
 }

@@ -22,7 +22,8 @@ public class CarrierAgent extends Agent {
 	private AID[] carrierAgents;
 	private ConcurrentLinkedQueue<Shipment> shipments;
 	
-	//Carrier infos TODO: überlegen was wirklich notwendig ist für constrainterfüllung + kostenberechnung
+	//Carrier infos 
+	//TODO: überlegen was wirklich notwendig ist für constrainterfüllung + kostenberechnung
 	//TODO: shipment reihenfolge und berechnung von z.b. verfügbarem platz/ladungsgewicht nach jeder delivery
 	private boolean onMyWay;
 	private Shipment nextDelivery;
@@ -30,6 +31,7 @@ public class CarrierAgent extends Agent {
 	
 	protected void setup() {
 	
+		System.out.println("CA: setup");
 		DFAgentDescription dfd = new DFAgentDescription();
 		dfd.setName(getAID());
 		ServiceDescription sd = new ServiceDescription();
@@ -65,10 +67,16 @@ public class CarrierAgent extends Agent {
 
 		@Override
 		public void action() {
-			
+//			System.out.println("CA: Action");
 			//empfange neue nachrichten
 			ACLMessage msg = myAgent.receive();
 			if (msg != null) {
+				try {
+					System.out.println("CA: message received - " + msg.getPerformative() + " " + msg.getContentObject());
+				} catch (UnreadableException e1) {
+					// TODO Auto-generated catch block
+					e1.printStackTrace();
+				}
 
 				if(msg.getPerformative() == ACLMessage.REQUEST) {
 					//verarbeite neuen request
@@ -90,7 +98,7 @@ public class CarrierAgent extends Agent {
 			}
 			
 		}
-
+		
 	}
 	
 	private class ComputeShipmentCostBehaviour extends OneShotBehaviour {
@@ -98,12 +106,14 @@ public class CarrierAgent extends Agent {
 		ACLMessage req;
 		
 		public ComputeShipmentCostBehaviour(ACLMessage req) {
+			System.out.println("CA: new ComputShipmentCostBehaviour");
 			this.req = req;
 		}
 
 		@Override
 		public void action() {
 			//berechner kosten und sende antwort
+			System.out.println("CA: action");
 			try {
 				Shipment s = (Shipment)req.getContentObject();
 				boolean deliveryPossible = false;

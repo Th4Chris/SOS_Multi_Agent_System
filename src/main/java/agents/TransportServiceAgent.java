@@ -1,9 +1,6 @@
 package agents;
 
 
-import java.io.IOException;
-import java.util.Date;
-
 import jade.core.AID;
 import jade.core.Agent;
 import jade.core.behaviours.Behaviour;
@@ -14,14 +11,18 @@ import jade.domain.FIPAAgentManagement.DFAgentDescription;
 import jade.domain.FIPAAgentManagement.ServiceDescription;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.UnreadableException;
+
+import java.io.IOException;
+import java.util.Date;
+
 import messageObjects.Shipment;
 
 public class TransportServiceAgent extends Agent {
 	
 	private AID[] carrierAgents;
-	
-	protected void setup() {
 		
+	protected void setup() {
+		System.out.println("TSA: setup transport service agent");
 		DFAgentDescription dfd = new DFAgentDescription();
 		dfd.setName(getAID());
 		ServiceDescription sd = new ServiceDescription();
@@ -60,7 +61,7 @@ public class TransportServiceAgent extends Agent {
 		public void action() {
 			
 			
-			
+			System.out.println("TSA: action processShipmentRequestBehaviour");
 			//bei neuer nachricht staret ein neues behaviour um alle carrier anzufragen
 			ACLMessage msg = myAgent.receive();
 			if (msg != null) {
@@ -78,6 +79,7 @@ public class TransportServiceAgent extends Agent {
 		}
 		
 		public void updateCarrierList() {
+			System.out.println("TSA: updateCarrierList");
 			DFAgentDescription template = new DFAgentDescription();
 			ServiceDescription sd = new ServiceDescription();
 			sd.setType("carrier");
@@ -106,11 +108,12 @@ public class TransportServiceAgent extends Agent {
 
 		@Override
 		public void action() {
-			
+			System.out.println("TSA: action CarrierRequestBehaviour");
 			
 			Shipment s = null;
 			try {
 				s = (Shipment)req.getContentObject();
+				System.out.println(s.toString());
 			} catch (UnreadableException e1) {
 				// TODO Auto-generated catch block
 				e1.printStackTrace();
@@ -140,6 +143,7 @@ public class TransportServiceAgent extends Agent {
 				while(brk) {
 					ACLMessage msg = myAgent.receive();
 					if (msg != null) {
+						System.out.println("TSA: Antwort" + msg.getPerformative());
 						if(msg.getPerformative() == ACLMessage.CONFIRM) {
 							//ermittel kostengünstigsten carrier
 							currentCost = ((Shipment)msg.getContentObject()).getCost();
@@ -148,35 +152,36 @@ public class TransportServiceAgent extends Agent {
 								bestCarrierMsg = msg;
 							}	
 						}
+						
+						//sende bestätigung an carrier
+						if(bestCarrierMsg != null) {
+							ACLMessage reply = bestCarrierMsg.createReply();
+							reply.setPerformative(ACLMessage.ACCEPT_PROPOSAL);
+							reply.setContentObject(bestCarrierMsg.getContentObject());
+							System.out.println("TSA: Best Carrier Message " + reply.getContent());
+							myAgent.send(reply);
+							
+						}
+						
+						//sende bestätigung an customer
+						ACLMessage replyCustomer = req.createReply();
+						if(bestCarrierMsg != null) {
+							replyCustomer.setPerformative(ACLMessage.CONFIRM);
+							s.setCarrierID(bestCarrierMsg.getSender());
+							replyCustomer.setContentObject(s);
+						}
+						else {
+							//kein carrier verfügbar
+							replyCustomer.setPerformative(ACLMessage.REFUSE);
+							replyCustomer.setContent("not-available");
+							System.out.println("TSA: Kein Carrier Verf�gbar");
+						}
+						myAgent.send(replyCustomer);
 					}
 					else {
 						block();
 					}
 				}
-				
-				//sende bestätigung an carrier
-				if(bestCarrierMsg != null) {
-					ACLMessage reply = bestCarrierMsg.createReply();
-					reply.setPerformative(ACLMessage.ACCEPT_PROPOSAL);
-					reply.setContentObject(bestCarrierMsg.getContentObject());
-					myAgent.send(reply);
-				}
-				
-				//sende bestätigung an customer
-				ACLMessage replyCustomer = req.createReply();
-				if(bestCarrierMsg != null) {
-					replyCustomer.setPerformative(ACLMessage.CONFIRM);
-					s.setCarrierID(bestCarrierMsg.getSender());
-					replyCustomer.setContentObject(s);
-				}
-				else {
-					//kein carrier verfügbar
-					replyCustomer.setPerformative(ACLMessage.REFUSE);
-					replyCustomer.setContent("not-available");
-				}
-				myAgent.send(replyCustomer);
-				
-				
 				
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
