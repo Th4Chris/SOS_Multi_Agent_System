@@ -1,8 +1,8 @@
 package messageObjects;
 
 import java.io.Serializable;
+import java.util.UUID;
 
-import FIPA.DateTime;
 import jade.core.AID;
 
 public class Shipment implements Serializable {
@@ -10,28 +10,18 @@ public class Shipment implements Serializable {
 	/**
 	 * 
 	 */
-	private static final long serialVersionUID = 1L;
-	private int xCoordStart;
-	private int yCoordStart;
-	private int xCoordDest;
-	private int yCoordDest;
+	private static final long serialVersionUID = -5905741624012143495L;
+	private Coordinates start;
+	private Coordinates dest;
 	private AID customerID;
 	private AID carrierID;
-	private int cost;
+	private double cost;
 	private int weight;
-	private DateTime delivery;
-	private DateTime pickup;
-	private DateTime latestDeliveryConstraint;
-	private DateTime earliestpickupConstraint;
-	private DateTime earliestDeliveryConstraint;
-	private DateTime latestpickupConstraint;
-	//public enum constraints = [REFRIGERATOR, ONTIMEDELIVERY];
+	private UUID id;
 	
-	public Shipment(int x1, int y1, int x2, int y2) {
-		this.xCoordStart = x1;
-		this.yCoordStart = y1;
-		this.xCoordDest = x2;
-		this.yCoordDest = y2;
+	public Shipment(Coordinates start, Coordinates dest) {
+		this.setStart(start);
+		this.setDest(dest);
 	}
 
 	public AID getCarrierID() {
@@ -42,11 +32,11 @@ public class Shipment implements Serializable {
 		this.carrierID = carrierID;
 	}
 
-	public int getCost() {
+	public double getCost() {
 		return cost;
 	}
 
-	public void setCost(int cost) {
+	public void setCost(double cost) {
 		this.cost = cost;
 	}
 
@@ -56,22 +46,6 @@ public class Shipment implements Serializable {
 
 	public void setWeight(int weight) {
 		this.weight = weight;
-	}
-
-	public DateTime getDelivery() {
-		return delivery;
-	}
-
-	public void setDelivery(DateTime delivery) {
-		this.delivery = delivery;
-	}
-
-	public DateTime getPickup() {
-		return pickup;
-	}
-
-	public void setPickup(DateTime pickup) {
-		this.pickup = pickup;
 	}
 
 	public AID getCustomerID() {
@@ -84,14 +58,40 @@ public class Shipment implements Serializable {
 
 	@Override
 	public String toString() {
-		return "Shipment [xCoordStart=" + xCoordStart + ", yCoordStart="
-				+ yCoordStart + ", xCoordDest=" + xCoordDest + ", yCoordDest="
-				+ yCoordDest + ", customerID=" + customerID + ", carrierID="
-				+ carrierID + ", cost=" + cost + ", weight=" + weight
-				+ ", delivery=" + delivery + ", pickup=" + pickup
-				+ ", latestDeliveryConstraint=" + latestDeliveryConstraint
-				+ ", earliestpickupConstraint=" + earliestpickupConstraint
-				+ ", earliestDeliveryConstraint=" + earliestDeliveryConstraint
-				+ ", latestpickupConstraint=" + latestpickupConstraint + "]";
+		return "Shipment [xCoordStart=" + getStart().getX() + ", yCoordStart="
+				+ getStart().getY() + ", xCoordDest=" + getDest().getX() + ", yCoordDest="
+				+ getDest().getY() + ", customerID=" + customerID + ", carrierID="
+				+ carrierID + ", cost=" + cost + ", weight=" + weight + "]";
+	}
+	
+	public boolean equals(Shipment s) {
+		if(this.id == s.getId()) {
+			return true;
+		}
+		return false;
+	}
+
+	public UUID getId() {
+		return id;
+	}
+
+	public void setId(UUID id) {
+		this.id = id;
+	}
+
+	public Coordinates getStart() {
+		return start;
+	}
+
+	public void setStart(Coordinates start) {
+		this.start = start;
+	}
+
+	public Coordinates getDest() {
+		return dest;
+	}
+
+	public void setDest(Coordinates dest) {
+		this.dest = dest;
 	}
 }

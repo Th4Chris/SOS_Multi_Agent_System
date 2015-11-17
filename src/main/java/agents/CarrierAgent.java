@@ -1,8 +1,8 @@
 package agents;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Date;
-import java.util.concurrent.ConcurrentLinkedQueue;
 
 import jade.core.AID;
 import jade.core.Agent;
@@ -15,19 +15,19 @@ import jade.domain.FIPAAgentManagement.DFAgentDescription;
 import jade.domain.FIPAAgentManagement.ServiceDescription;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.UnreadableException;
+import messageObjects.Coordinates;
 import messageObjects.Shipment;
 
 public class CarrierAgent extends Agent {
 	
-	private AID[] carrierAgents;
-	private ConcurrentLinkedQueue<Shipment> shipments;
+	private ArrayList<Shipment> shipments;
 	
 	//Carrier infos 
-	//TODO: überlegen was wirklich notwendig ist für constrainterfüllung + kostenberechnung
 	//TODO: shipment reihenfolge und berechnung von z.b. verfügbarem platz/ladungsgewicht nach jeder delivery
 	private boolean onMyWay;
-	private Shipment nextDelivery;
-	private int maxLoad;
+	private double currentCost;
+	private int remainingCapacity;
+	private Coordinates currentPos;
 	
 	protected void setup() {
 	
@@ -45,10 +45,14 @@ public class CarrierAgent extends Agent {
 		catch (FIPAException fe) {
 			fe.printStackTrace();
 		}
-		shipments = new ConcurrentLinkedQueue<Shipment>();
+		shipments = new ArrayList<Shipment>();
 		
+		//lege maximale kapazität fest
+		remainingCapacity = (int)(Math.random() * 900) + 100;
+		currentPos = new Coordinates((int)Math.floor(Math.random() * 100), (int)Math.floor(Math.random() * 100));
+		onMyWay = false;
+		currentCost = 0;
 		addBehaviour(new ReceiveShipmentMessageBehaviour());
-		addBehaviour(new OptimizeShipmentMessageBehaviour());
 	}
 	
 	
@@ -63,6 +67,7 @@ public class CarrierAgent extends Agent {
 		
 	}
 	
+	@SuppressWarnings("serial")
 	private class ReceiveShipmentMessageBehaviour extends CyclicBehaviour {
 
 		@Override
@@ -74,7 +79,6 @@ public class CarrierAgent extends Agent {
 				try {
 					System.out.println("CA: message received - " + msg.getPerformative() + " " + msg.getContentObject());
 				} catch (UnreadableException e1) {
-					// TODO Auto-generated catch block
 					e1.printStackTrace();
 				}
 
@@ -82,12 +86,15 @@ public class CarrierAgent extends Agent {
 					//verarbeite neuen request
 					myAgent.addBehaviour(new ComputeShipmentCostBehaviour(msg));
 				}
-				else if(msg.getPerformative() == ACLMessage.CONFIRM) {
+				else if(msg.getPerformative() == ACLMessage.ACCEPT_PROPOSAL) {
 					//füge shipment zur liste hinzu
 					try {
 						shipments.add((Shipment)msg.getContentObject());
+						currentCost = calculateCost((Shipment) msg.getContentObject());
+						remainingCapacity -= ((Shipment) msg.getContentObject()).getWeight();
+						//TODO: move behaviour um shipments abzuarbeiten
+						//TODO: wann fährt er los? wenn voll? nach vergangener zeit,auch wenn nicht voll?
 					} catch (UnreadableException e) {
-						// TODO Auto-generated catch block
 						e.printStackTrace();
 					}
 				}
@@ -101,6 +108,7 @@ public class CarrierAgent extends Agent {
 		
 	}
 	
+	@SuppressWarnings("serial")
 	private class ComputeShipmentCostBehaviour extends OneShotBehaviour {
 		
 		ACLMessage req;
@@ -112,30 +120,36 @@ public class CarrierAgent extends Agent {
 
 		@Override
 		public void action() {
-			//berechner kosten und sende antwort
+			//berechne kosten und sende antwort
 			System.out.println("CA: action");
 			try {
 				Shipment s = (Shipment)req.getContentObject();
-				boolean deliveryPossible = false;
 				
-				//TODO: constraints überprüfen + kosten berechnen
-				//if constraints erfüllbar -> deliveryPossible = true;
-				//s.setCost(costs);
-				//s.setPickup(pickup);
-				//s.setDelivery(delivery);
-				
-				//sende antwort mit bestätigung
 				ACLMessage reply = req.createReply();
 				
-				if(deliveryPossible) {
+				//bestätige nur, wenn noch platz ist und der carrier nicht unterwegs
+				if(s.getWeight() <= remainingCapacity && onMyWay == false) {
+					double cost = 0;
+					if(shipments.isEmpty()) {
+						cost += currentPos.getDistance(s.getStart());
+						cost += s.getStart().getDistance(s.getDest());
+					}
+					else {
+						
+						cost = calculateCost(s);
+						
+						
+					}
+					
 					
 					reply.setPerformative(ACLMessage.CONFIRM);
+					s.setCost(cost - currentCost);
 					reply.setContentObject(s);
 					//erwarte Antwort innerhalb von 10 Sekunden
 					reply.setReplyByDate(new Date(new Date().getTime() + 10000));
 				}
 				else {
-					//kann lieferung nicht übernehmen -> bereits voll, zu weit weg etc
+					//kann lieferung nicht übernehmen -> zu wenig kapazität
 					reply.setPerformative(ACLMessage.REFUSE);
 					reply.setContent("not-available");
 				}
@@ -143,10 +157,8 @@ public class CarrierAgent extends Agent {
 				myAgent.send(reply);
 				
 			} catch (UnreadableException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			} catch (IOException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 			
@@ -154,42 +166,83 @@ public class CarrierAgent extends Agent {
 
 	}
 	
-	public class OptimizeShipmentMessageBehaviour extends Behaviour {
+	private class DeliveryBehaviour extends OneShotBehaviour {
 
 		@Override
 		public void action() {
+			// TODO: let's move
+			//benutze wegkosten als multiplikator für timeout in einer schleife, bei der die route abgearbeitet wird
+			//am ende onMyWay = false;
 			
-			updateCarrierList();
-			
-			//regelmäßige anfrage an andere carrier über routenaustausch
-			//TODO: überlegen wann und wie oft angefragt wird bzw unter welchen bedingungen
-			//TODO: informiere customer bei update ACLMessage.INFORM
-			
-		}
-
-		@Override
-		public boolean done() {
-			// TODO Auto-generated method stub
-			return false;
 		}
 		
-		public void updateCarrierList() {
-			DFAgentDescription template = new DFAgentDescription();
-			ServiceDescription sd = new ServiceDescription();
-			sd.setType("carrier");
-			template.addServices(sd);
-			try {
-			DFAgentDescription[] result = DFService.search(myAgent, template);
-			carrierAgents = new AID[result.length];
-			for (int i = 0; i < result.length; ++i) {
-				carrierAgents[i] = result[i].getName();
-			}
-			}
-			catch (FIPAException fe) {
-				fe.printStackTrace();
-			}
-		}
-
 	}
+	
+	
+	private double calculateCost(Shipment s) {
+		
+		//JEDS MAL KOMPLETTE ROUTE NEU KALKULIEREN	
+		
+		//shipments durchlaufen -> nur start betrachten, wenn start ausgewählt, entfernt shipment und 
+		//füge es in eine neue destination liste hinzu um anzuzeigen, dass die destination dieses shipments 
+		//ausgewählt werden kann
+		//alle ausgewählten koordinaten kommen in eine extra liste, der index bestimmt die reihenfolge
+		//da jedes mal die komplette strecke neu berechnet wird, für die kosten die differenz zwischen alt und neu ausgeben
+		//FÜGE DEST AN BESTMÖGLICHER KOORDINATE NACH (größererIndex) START EIN
+		//neue idee: alle startknoten nach besten kosten einfügen
+		//danach die zielknoten an einem bestmöglichen, höheren index als der startpunkt, einfügen
+		
+		ArrayList<Shipment> possibleShipments = new ArrayList<Shipment>();
+		possibleShipments.addAll(shipments);
+		possibleShipments.add(s);
+		ArrayList<Shipment> possibleDestinations = new ArrayList<Shipment>(possibleShipments);
+		ArrayList<Coordinates> route = new ArrayList<Coordinates>();
+		double cost = 0;
+		
+		Coordinates current = currentPos;
+		
+		
+		//bilde billigste tour aus startkoordinaten
+		while(!possibleShipments.isEmpty()) {
+			
+			double minCost = Double.MAX_VALUE;
+			Coordinates minC = null;
+			for(Shipment sh : possibleShipments) {
+				if(current.getDistance(sh.getStart()) < minCost) {
+					minCost = current.getDistance(sh.getStart());
+					minC = sh.getStart();
+				}								
+			}
+			current = minC;
+			route.add(current);
+			possibleShipments.remove(current);
+		}
+		
+		//füge zielkoordianten an kostengünstigster position nach den startkoordinaten ein		
+		double minCost = Double.MAX_VALUE;
+		int pos = 0;
+		for(Shipment sh : possibleDestinations) {
+			int index = route.indexOf(sh.getStart());
+			for(int i = index; i < route.size(); i++) {
+				double cst = route.get(i).getDistance(sh.getDest());
+				if(cst < minCost) {
+					minCost = cst;
+					pos = i+1;
+				}
+			}
+			route.add(pos, sh.getDest());							
+		}
+		
+		cost = 0;
+		current = currentPos;
+		//berechne gesamtkosten
+		for(Coordinates c : route) {
+			cost += current.getDistance(c);
+			current = c;
+		}
+		
+		return cost;
+	}
+	
 
 }

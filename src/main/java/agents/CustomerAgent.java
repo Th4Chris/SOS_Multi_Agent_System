@@ -1,6 +1,7 @@
 package agents;
 
 import java.io.IOException;
+import java.util.UUID;
 
 import jade.core.AID;
 import jade.core.Agent;
@@ -14,6 +15,7 @@ import jade.domain.FIPAAgentManagement.DFAgentDescription;
 import jade.domain.FIPAAgentManagement.ServiceDescription;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.UnreadableException;
+import messageObjects.Coordinates;
 import messageObjects.Shipment;
 
 public class CustomerAgent extends Agent {
@@ -38,11 +40,18 @@ public class CustomerAgent extends Agent {
 		}		
 		
 		//erstelle regelmäßig neue shipments
-		//TODO: random werte für neue shipments generieren
+		
 		addBehaviour(new TickerBehaviour(this, 6000) {
 			protected void onTick() {
-				Shipment ship = new Shipment(1,2,3,4);
-				ship.setWeight(100);
+				int shipmentweight = (int)Math.floor(Math.random() * 100);
+				int startX = (int)Math.floor(Math.random() * 100);
+				int startY = (int)Math.floor(Math.random() * 100);
+				int destX = startX + (int)(Math.floor(Math.random() * 10));
+				int destY = startY + (int)(Math.floor(Math.random() * 10));
+				Shipment ship = new Shipment(new Coordinates(startX,startY), new Coordinates(destX, destY));
+				ship.setWeight(shipmentweight);
+				UUID id = UUID.randomUUID();
+				ship.setId(id);
 				myAgent.addBehaviour(new NewShipmentBehaviour(ship));
 			}
 		} );
@@ -88,7 +97,6 @@ public class CustomerAgent extends Agent {
 				cfp.setContentObject(s);
 				myAgent.send(cfp);
 			} catch (IOException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			};
 			
@@ -122,7 +130,7 @@ public class CustomerAgent extends Agent {
 		@Override
 		public void action() {
 			
-			System.out.println("CustomerAgent: GetSHipmentStatusBehaviour - action");
+			System.out.println("CustomerAgent: GetShipmentStatusBehaviour - action");
 			//empfange neue nachrichten
 			ACLMessage msg = myAgent.receive();
 			if (msg != null) {
@@ -132,9 +140,6 @@ public class CustomerAgent extends Agent {
 				}
 				else if(msg.getPerformative() == ACLMessage.REFUSE) {
 					System.out.println("Shipment denied - no carrier available");
-				}
-				else if(msg.getPerformative() == ACLMessage.INFORM) {
-					System.out.println("Shipment update");
 				}
 				
 			}

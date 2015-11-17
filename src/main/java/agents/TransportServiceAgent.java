@@ -15,6 +15,7 @@ import jade.lang.acl.UnreadableException;
 import java.io.IOException;
 import java.util.Date;
 
+import FIPA.DateTime;
 import messageObjects.Shipment;
 
 public class TransportServiceAgent extends Agent {
@@ -55,6 +56,7 @@ public class TransportServiceAgent extends Agent {
 		
 	}
 	
+	@SuppressWarnings("serial")
 	private class ProcessShipmentRequestBehaviour extends CyclicBehaviour {
 
 		@Override
@@ -98,6 +100,7 @@ public class TransportServiceAgent extends Agent {
 
 	}
 	
+	@SuppressWarnings("serial")
 	private class CarrierRequestBehaviour extends Behaviour {
 		
 		ACLMessage req;
@@ -115,20 +118,21 @@ public class TransportServiceAgent extends Agent {
 				s = (Shipment)req.getContentObject();
 				System.out.println(s.toString());
 			} catch (UnreadableException e1) {
-				// TODO Auto-generated catch block
 				e1.printStackTrace();
 			}
 			
-			int bestCost = Integer.MAX_VALUE;
-			int currentCost = Integer.MAX_VALUE;
+			double bestCost = Double.MAX_VALUE;
+			double currentCost = Double.MAX_VALUE;
 			ACLMessage bestCarrierMsg = null;
 			
+			int carrierCount = carrierAgents.length;
 			//adressiere nachricht an alle carrier
 			ACLMessage cfp = new ACLMessage(ACLMessage.REQUEST);
-			for (int i = 0; i < carrierAgents.length; ++i) {
+			for (int i = 0; i < carrierCount; ++i) {
 				cfp.addReceiver(carrierAgents[i]);
 			}
 
+			
 			try {
 				//leite Anfrage an alle carrier weiter(set reply within)
 				cfp.setContentObject(s);
@@ -136,58 +140,62 @@ public class TransportServiceAgent extends Agent {
 				cfp.setReplyByDate(new Date(new Date().getTime() + 10000));
 				myAgent.send(cfp);
 				
-				
-				
-				//schleife um alle carrier replys abzuarbeiten, TODO: abbruchbedingung???
-				boolean brk = true;
-				while(brk) {
+
+				long startTime = new Date().getTime();
+				long endTime = 0;
+				int count = 0;
+				//schleife um alle carrier replys abzuarbeiten, abbruch wenn alle geantwortet haben oder nach 40 sec
+				while((startTime - endTime) > 4000 && count < carrierCount) {
 					ACLMessage msg = myAgent.receive();
 					if (msg != null) {
-						System.out.println("TSA: Antwort" + msg.getPerformative());
-						if(msg.getPerformative() == ACLMessage.CONFIRM) {
-							//ermittel kostengünstigsten carrier
-							currentCost = ((Shipment)msg.getContentObject()).getCost();
-							if(currentCost < bestCost) {
-								bestCost = currentCost;
-								bestCarrierMsg = msg;
-							}	
+						if(((Shipment)msg.getContentObject()).equals(s)) {
+							count++;
+							System.out.println("TSA: Antwort" + msg.getPerformative());
+							if(msg.getPerformative() == ACLMessage.CONFIRM) {
+								//ermittel kostengünstigsten carrier
+								currentCost = ((Shipment)msg.getContentObject()).getCost();
+								if(currentCost < bestCost) {
+									bestCost = currentCost;
+									bestCarrierMsg = msg;
+								}	
+							}
 						}
 						
-						//sende bestätigung an carrier
-						if(bestCarrierMsg != null) {
-							ACLMessage reply = bestCarrierMsg.createReply();
-							reply.setPerformative(ACLMessage.ACCEPT_PROPOSAL);
-							reply.setContentObject(bestCarrierMsg.getContentObject());
-							System.out.println("TSA: Best Carrier Message " + reply.getContent());
-							myAgent.send(reply);
-							
-						}
-						
-						//sende bestätigung an customer
-						ACLMessage replyCustomer = req.createReply();
-						if(bestCarrierMsg != null) {
-							replyCustomer.setPerformative(ACLMessage.CONFIRM);
-							s.setCarrierID(bestCarrierMsg.getSender());
-							replyCustomer.setContentObject(s);
-						}
-						else {
-							//kein carrier verfügbar
-							replyCustomer.setPerformative(ACLMessage.REFUSE);
-							replyCustomer.setContent("not-available");
-							System.out.println("TSA: Kein Carrier Verf�gbar");
-						}
-						myAgent.send(replyCustomer);
 					}
 					else {
 						block();
 					}
 				}
+						
+				//sende bestätigung an carrier
+				if(bestCarrierMsg != null) {
+					ACLMessage reply = bestCarrierMsg.createReply();
+					reply.setPerformative(ACLMessage.ACCEPT_PROPOSAL);
+					reply.setContentObject(bestCarrierMsg.getContentObject());
+					System.out.println("TSA: Best Carrier Message " + reply.getContent());
+					myAgent.send(reply);
+					
+				}
+				
+				//sende bestätigung an customer
+				ACLMessage replyCustomer = req.createReply();
+				if(bestCarrierMsg != null) {
+					replyCustomer.setPerformative(ACLMessage.CONFIRM);
+					s.setCarrierID(bestCarrierMsg.getSender());
+					replyCustomer.setContentObject(s);
+				}
+				else {
+					//kein carrier verfügbar
+					replyCustomer.setPerformative(ACLMessage.REFUSE);
+					replyCustomer.setContent("not-available");
+					System.out.println("TSA: Kein Carrier Verf�gbar");
+				}
+				myAgent.send(replyCustomer);
+					
 				
 			} catch (IOException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			} catch (UnreadableException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			};
 			
@@ -195,7 +203,6 @@ public class TransportServiceAgent extends Agent {
 
 		@Override
 		public boolean done() {
-			// TODO Auto-generated method stub
 			return false;
 		}
 
