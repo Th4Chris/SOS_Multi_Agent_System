@@ -3,12 +3,14 @@ package agents;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.UUID;
 
 import jade.core.AID;
 import jade.core.Agent;
 import jade.core.behaviours.Behaviour;
 import jade.core.behaviours.CyclicBehaviour;
 import jade.core.behaviours.OneShotBehaviour;
+import jade.core.behaviours.TickerBehaviour;
 import jade.domain.DFService;
 import jade.domain.FIPAException;
 import jade.domain.FIPAAgentManagement.DFAgentDescription;
@@ -23,11 +25,13 @@ public class CarrierAgent extends Agent {
 	private ArrayList<Shipment> shipments;
 	
 	//Carrier infos 
-	//TODO: shipment reihenfolge und berechnung von z.b. verfügbarem platz/ladungsgewicht nach jeder delivery
 	private boolean onMyWay;
 	private double currentCost;
 	private int remainingCapacity;
+	private int maxCapacity;
 	private Coordinates currentPos;
+	private Coordinates lastRoutePos;
+
 	
 	protected void setup() {
 	
@@ -49,10 +53,22 @@ public class CarrierAgent extends Agent {
 		
 		//lege maximale kapazität fest
 		remainingCapacity = (int)(Math.random() * 900) + 100;
+		maxCapacity = remainingCapacity;
 		currentPos = new Coordinates((int)Math.floor(Math.random() * 100), (int)Math.floor(Math.random() * 100));
 		onMyWay = false;
 		currentCost = 0;
 		addBehaviour(new ReceiveShipmentMessageBehaviour());
+		
+		//check alle 60 sec ob zumindest eine lieferung vorhanden, wenn ja fahr los
+		addBehaviour(new TickerBehaviour(this, 60000) {
+			protected void onTick() {
+				if(shipments.size() > 0 && !onMyWay)
+				{
+					onMyWay = true;
+					addBehaviour(new DeliveryBehaviour());
+				}
+			}
+		} );
 	}
 	
 	
@@ -90,10 +106,9 @@ public class CarrierAgent extends Agent {
 					//füge shipment zur liste hinzu
 					try {
 						shipments.add((Shipment)msg.getContentObject());
-						currentCost = calculateCost((Shipment) msg.getContentObject());
+						currentCost = calculateCost((Shipment) msg.getContentObject(), true);
 						remainingCapacity -= ((Shipment) msg.getContentObject()).getWeight();
-						//TODO: move behaviour um shipments abzuarbeiten
-						//TODO: wann fährt er los? wenn voll? nach vergangener zeit,auch wenn nicht voll?
+						
 					} catch (UnreadableException e) {
 						e.printStackTrace();
 					}
@@ -136,8 +151,7 @@ public class CarrierAgent extends Agent {
 					}
 					else {
 						
-						cost = calculateCost(s);
-						
+						cost = calculateCost(s, false);					
 						
 					}
 					
@@ -170,27 +184,27 @@ public class CarrierAgent extends Agent {
 
 		@Override
 		public void action() {
-			// TODO: let's move
-			//benutze wegkosten als multiplikator für timeout in einer schleife, bei der die route abgearbeitet wird
-			//am ende onMyWay = false;
+			//benutze wegkosten als multiplikator für sleep
+			try {
+				//sleep für jede kosteneinheit 1 sec
+				Thread.sleep((long) (currentCost * 100));
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+			
+			//setze aktuelle Position auf endposition der route und resette shipments, kosten und kapazität
+			currentPos = lastRoutePos;
+			remainingCapacity = maxCapacity;
+			shipments.clear();
+			currentCost = 0;
+			onMyWay = false;
 			
 		}
 		
 	}
 	
 	
-	private double calculateCost(Shipment s) {
-		
-		//JEDS MAL KOMPLETTE ROUTE NEU KALKULIEREN	
-		
-		//shipments durchlaufen -> nur start betrachten, wenn start ausgewählt, entfernt shipment und 
-		//füge es in eine neue destination liste hinzu um anzuzeigen, dass die destination dieses shipments 
-		//ausgewählt werden kann
-		//alle ausgewählten koordinaten kommen in eine extra liste, der index bestimmt die reihenfolge
-		//da jedes mal die komplette strecke neu berechnet wird, für die kosten die differenz zwischen alt und neu ausgeben
-		//FÜGE DEST AN BESTMÖGLICHER KOORDINATE NACH (größererIndex) START EIN
-		//neue idee: alle startknoten nach besten kosten einfügen
-		//danach die zielknoten an einem bestmöglichen, höheren index als der startpunkt, einfügen
+	private double calculateCost(Shipment s, boolean accept) {
 		
 		ArrayList<Shipment> possibleShipments = new ArrayList<Shipment>();
 		possibleShipments.addAll(shipments);
@@ -221,6 +235,7 @@ public class CarrierAgent extends Agent {
 		//füge zielkoordianten an kostengünstigster position nach den startkoordinaten ein		
 		double minCost = Double.MAX_VALUE;
 		int pos = 0;
+		Coordinates last = null;
 		for(Shipment sh : possibleDestinations) {
 			int index = route.indexOf(sh.getStart());
 			for(int i = index; i < route.size(); i++) {
@@ -230,7 +245,12 @@ public class CarrierAgent extends Agent {
 					pos = i+1;
 				}
 			}
-			route.add(pos, sh.getDest());							
+			route.add(pos, sh.getDest());
+			last = sh.getDest();
+		}
+		if(accept)
+		{
+			lastRoutePos = last;
 		}
 		
 		cost = 0;
