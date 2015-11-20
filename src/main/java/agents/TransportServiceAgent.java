@@ -5,6 +5,7 @@ import jade.core.AID;
 import jade.core.Agent;
 import jade.core.behaviours.Behaviour;
 import jade.core.behaviours.CyclicBehaviour;
+import jade.core.behaviours.OneShotBehaviour;
 import jade.domain.DFService;
 import jade.domain.FIPAException;
 import jade.domain.FIPAAgentManagement.DFAgentDescription;
@@ -101,7 +102,7 @@ public class TransportServiceAgent extends Agent {
 	}
 	
 	@SuppressWarnings("serial")
-	private class CarrierRequestBehaviour extends Behaviour {
+	private class CarrierRequestBehaviour extends OneShotBehaviour {
 		
 		ACLMessage req;
 		
@@ -145,10 +146,12 @@ public class TransportServiceAgent extends Agent {
 				long endTime = 0;
 				int count = 0;
 				//schleife um alle carrier replys abzuarbeiten, abbruch wenn alle geantwortet haben oder nach 40 sec
-				while((startTime - endTime) > 4000 && count < carrierCount) {
+				while((startTime - endTime) > 40000 && count < carrierCount) {
+				//boolean test = true;
+				//while(test) {
 					ACLMessage msg = myAgent.receive();
 					if (msg != null) {
-						if(((Shipment)msg.getContentObject()).equals(s)) {
+						if(((Shipment)msg.getContentObject()).getId().equals(s.getId())) {
 							count++;
 							System.out.println("TSA: Antwort" + msg.getPerformative());
 							if(msg.getPerformative() == ACLMessage.CONFIRM) {
@@ -160,7 +163,7 @@ public class TransportServiceAgent extends Agent {
 								}	
 							}
 						}
-						
+						endTime = new Date().getTime();
 					}
 					else {
 						block();
@@ -172,7 +175,7 @@ public class TransportServiceAgent extends Agent {
 					ACLMessage reply = bestCarrierMsg.createReply();
 					reply.setPerformative(ACLMessage.ACCEPT_PROPOSAL);
 					reply.setContentObject(bestCarrierMsg.getContentObject());
-					System.out.println("TSA: Best Carrier Message " + reply.getContent());
+					System.out.println("TSA: Best Carrier cost " + ((Shipment)reply.getContentObject()).getCost());
 					myAgent.send(reply);
 					
 				}
@@ -199,11 +202,6 @@ public class TransportServiceAgent extends Agent {
 				e.printStackTrace();
 			};
 			
-		}
-
-		@Override
-		public boolean done() {
-			return false;
 		}
 
 	}

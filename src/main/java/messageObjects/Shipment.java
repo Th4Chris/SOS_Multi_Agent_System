@@ -61,7 +61,7 @@ public class Shipment implements Serializable {
 		return "Shipment [xCoordStart=" + getStart().getX() + ", yCoordStart="
 				+ getStart().getY() + ", xCoordDest=" + getDest().getX() + ", yCoordDest="
 				+ getDest().getY() + ", customerID=" + customerID + ", carrierID="
-				+ carrierID + ", cost=" + cost + ", weight=" + weight + "]";
+				+ carrierID + ", cost=" + cost + ", weight=" + weight + "UUID=" + id +"]";
 	}
 	
 	public boolean equals(Shipment s) {

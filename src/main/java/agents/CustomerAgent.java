@@ -41,7 +41,7 @@ public class CustomerAgent extends Agent {
 		
 		//erstelle regelmäßig neue shipments
 		
-		addBehaviour(new TickerBehaviour(this, 6000) {
+		addBehaviour(new TickerBehaviour(this, 10000) {
 			protected void onTick() {
 				int shipmentweight = (int)Math.floor(Math.random() * 100);
 				int startX = (int)Math.floor(Math.random() * 100);
@@ -52,6 +52,7 @@ public class CustomerAgent extends Agent {
 				ship.setWeight(shipmentweight);
 				UUID id = UUID.randomUUID();
 				ship.setId(id);
+				ship.setCustomerID(getAID());
 				myAgent.addBehaviour(new NewShipmentBehaviour(ship));
 			}
 		} );

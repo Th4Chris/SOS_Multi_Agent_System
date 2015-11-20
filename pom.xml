@@ -4,6 +4,7 @@
   <artifactId>mas-logistics</artifactId>
   <version>0.0.1-SNAPSHOT</version>
   <name>mas-logistics</name>
+
   
   <repositories>
 	<repository> 

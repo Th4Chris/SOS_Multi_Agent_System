@@ -30,7 +30,6 @@ public class CarrierAgent extends Agent {
 	private int remainingCapacity;
 	private int maxCapacity;
 	private Coordinates currentPos;
-	private Coordinates lastRoutePos;
 
 	
 	protected void setup() {
@@ -57,6 +56,7 @@ public class CarrierAgent extends Agent {
 		currentPos = new Coordinates((int)Math.floor(Math.random() * 100), (int)Math.floor(Math.random() * 100));
 		onMyWay = false;
 		currentCost = 0;
+		shipments = new ArrayList<Shipment>();
 		addBehaviour(new ReceiveShipmentMessageBehaviour());
 		
 		//check alle 60 sec ob zumindest eine lieferung vorhanden, wenn ja fahr los
@@ -64,6 +64,7 @@ public class CarrierAgent extends Agent {
 			protected void onTick() {
 				if(shipments.size() > 0 && !onMyWay)
 				{
+					System.out.println("CA: delivery");
 					onMyWay = true;
 					addBehaviour(new DeliveryBehaviour());
 				}
@@ -102,12 +103,15 @@ public class CarrierAgent extends Agent {
 					//verarbeite neuen request
 					myAgent.addBehaviour(new ComputeShipmentCostBehaviour(msg));
 				}
-				else if(msg.getPerformative() == ACLMessage.ACCEPT_PROPOSAL) {
+				if(msg.getPerformative() == ACLMessage.ACCEPT_PROPOSAL) {
 					//füge shipment zur liste hinzu
+					System.out.println("CA: accept proposal");
 					try {
 						shipments.add((Shipment)msg.getContentObject());
-						currentCost = calculateCost((Shipment) msg.getContentObject(), true);
+						currentCost = ((Shipment) msg.getContentObject()).getCost();
+
 						remainingCapacity -= ((Shipment) msg.getContentObject()).getWeight();
+						System.out.println("CA: adding shipment");
 						
 					} catch (UnreadableException e) {
 						e.printStackTrace();
@@ -115,9 +119,7 @@ public class CarrierAgent extends Agent {
 				}
 				
 			}
-			else {
-				block();
-			}
+			
 			
 		}
 		
@@ -145,15 +147,16 @@ public class CarrierAgent extends Agent {
 				//bestätige nur, wenn noch platz ist und der carrier nicht unterwegs
 				if(s.getWeight() <= remainingCapacity && onMyWay == false) {
 					double cost = 0;
-					if(shipments.isEmpty()) {
+					//if(shipments.isEmpty()) {
 						cost += currentPos.getDistance(s.getStart());
 						cost += s.getStart().getDistance(s.getDest());
-					}
+						//test neue berechnung
+						currentPos = s.getDest();
+					/*}
 					else {
 						
-						cost = calculateCost(s, false);					
-						
-					}
+						cost = calculateCost(s, false);	
+					}*/
 					
 					
 					reply.setPerformative(ACLMessage.CONFIRM);
@@ -168,7 +171,9 @@ public class CarrierAgent extends Agent {
 					reply.setContent("not-available");
 				}
 				
+				
 				myAgent.send(reply);
+	
 				
 			} catch (UnreadableException e) {
 				e.printStackTrace();
@@ -180,11 +185,13 @@ public class CarrierAgent extends Agent {
 
 	}
 	
+	@SuppressWarnings("serial")
 	private class DeliveryBehaviour extends OneShotBehaviour {
 
 		@Override
 		public void action() {
 			//benutze wegkosten als multiplikator für sleep
+			
 			try {
 				//sleep für jede kosteneinheit 1 sec
 				Thread.sleep((long) (currentCost * 100));
@@ -193,7 +200,6 @@ public class CarrierAgent extends Agent {
 			}
 			
 			//setze aktuelle Position auf endposition der route und resette shipments, kosten und kapazität
-			currentPos = lastRoutePos;
 			remainingCapacity = maxCapacity;
 			shipments.clear();
 			currentCost = 0;
@@ -203,19 +209,20 @@ public class CarrierAgent extends Agent {
 		
 	}
 	
-	
+	//Benötigt zu viel heap space, daher wird für die protoyp entwicklung diese funktion ausgenommen und eine simplere kostenberechnung verwendet
 	private double calculateCost(Shipment s, boolean accept) {
+		
 		
 		ArrayList<Shipment> possibleShipments = new ArrayList<Shipment>();
 		possibleShipments.addAll(shipments);
 		possibleShipments.add(s);
-		ArrayList<Shipment> possibleDestinations = new ArrayList<Shipment>(possibleShipments);
+		int [] indexShip = new int[shipments.size()+2];
 		ArrayList<Coordinates> route = new ArrayList<Coordinates>();
 		double cost = 0;
 		
 		Coordinates current = currentPos;
 		
-		
+		int ix = 0;
 		//bilde billigste tour aus startkoordinaten
 		while(!possibleShipments.isEmpty()) {
 			
@@ -228,10 +235,15 @@ public class CarrierAgent extends Agent {
 				}								
 			}
 			current = minC;
-			route.add(current);
+			indexShip[ix] = shipments.indexOf(current);
+			//ix++;
+			//route.add(current);
 			possibleShipments.remove(current);
 		}
+		System.out.println("costcalc bool:"+ accept);
 		
+		ArrayList<Shipment> possibleDestinations = new ArrayList<Shipment>(shipments);
+		possibleDestinations.add(s);
 		//füge zielkoordianten an kostengünstigster position nach den startkoordinaten ein		
 		double minCost = Double.MAX_VALUE;
 		int pos = 0;
@@ -250,7 +262,7 @@ public class CarrierAgent extends Agent {
 		}
 		if(accept)
 		{
-			lastRoutePos = last;
+			//lastRoutePos = last;
 		}
 		
 		cost = 0;
@@ -260,6 +272,9 @@ public class CarrierAgent extends Agent {
 			cost += current.getDistance(c);
 			current = c;
 		}
+		possibleShipments = null;
+		possibleDestinations = null;
+		route = null;
 		
 		return cost;
 	}
